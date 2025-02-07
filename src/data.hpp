@@ -84,7 +84,7 @@ private:
         ts_T timeStamp = 0;
         val_T firstX = 0;
         std::optional<std::vector<val_T>> otherX;
-        int sampleQuotient = 60;
+        int sampleQuotient = 1;
 
         if(samplingRate != 0) {
             sampleQuotient = 100000/samplingRate;
@@ -103,7 +103,7 @@ private:
 
         for (currentPosition = 0; currentPosition < vectorSize; ++currentPosition) {
             if((currentPosition + sampleQuotient) < vectorSize) {
-                currentPosition = currentPosition + sampleQuotient;
+                currentPosition = currentPosition + sampleQuotient-1;
             }
             else return;
 
@@ -267,7 +267,7 @@ private:
     }
 
     void write_JsonObject(std::atomic<int> &counter, std::mutex& jsonMutex) {
-        constexpr int batchSize = 1000;
+        constexpr int batchSize = 100000;
         nlohmann::json currentBatch;
         currentBatch["data"] = nlohmann::json::array();
 
@@ -281,6 +281,12 @@ private:
                     std::lock_guard<std::mutex> lock(handleMutex);
                     sample = handle.front();
                     handle.pop_front();
+
+                    //for n < 1000
+                    // int value = myqueue.pop_front();
+                    // myMap[i] = value;
+                    //}
+                    // static nlohmann:json 
 
                     // add sample to Json object
                     nlohmann::json sampleObject;
@@ -539,7 +545,7 @@ void searchDevices() {
         devices.clear();
         deviceManager.clearDevices();
         initDevices(); // check if devices are connected
-        std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause between checks
+        //std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause between checks
     }
 }
 
@@ -768,7 +774,7 @@ void WSTest() {
         CROW_LOG_INFO << "new websocket connection from " << conn.get_remote_ip();
         std::lock_guard<std::mutex> _(mtx);
         users.insert(&conn);
-        conn.send_text("Hello, connection established");
+        conn.send_text("Connection established, waiting for List of UUIDs");
     })
     .onclose([&](crow::websocket::connection& conn, const std::string& reason) {
         websocketConnectionActive = false;
@@ -782,6 +788,8 @@ void WSTest() {
         std::lock_guard<std::mutex> _(mtx);
         if(!data.empty()) {
             char firstChar = data[0];
+            // std::vector<UUID_T> requested_channels = extract_UUIDs_from_request(&data);
+            // if( !requested_channels.empty() )
             if(firstChar == 'E') {
                 clearAllDeques();
                 startUUIDs = splitString(data);
